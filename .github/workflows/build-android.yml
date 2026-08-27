@@ -1,1 +1,160 @@
+name: Frahoosh Android Build
 
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frahoosh-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Frahoosh APK
+    runs-on: ubuntu-22.04
+
+    env:
+      FRAHOOSH_SUPABASE_URL: ${{ secrets.FRAHOOSH_SUPABASE_URL }}
+      FRAHOOSH_SUPABASE_ANON_KEY: ${{ secrets.FRAHOOSH_SUPABASE_ANON_KEY }}
+      FRAHOOSH_SCHOOL_ID: ${{ vars.FRAHOOSH_SCHOOL_ID }}
+      FRAHOOSH_SCHOOL_NAME: ${{ vars.FRAHOOSH_SCHOOL_NAME }}
+      FRAHOOSH_SCHOOL_YEAR: ${{ vars.FRAHOOSH_SCHOOL_YEAR }}
+
+      # Keep Buildozer/p4a builds non-interactive.
+      PYTHONUNBUFFERED: "1"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+      PYTHONFORANDROID_PREREQUISITES_INSTALL_INTERACTIVE: "0"
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            autoconf \
+            automake \
+            build-essential \
+            ccache \
+            cmake \
+            gettext \
+            git \
+            libffi-dev \
+            libltdl-dev \
+            libncurses5-dev \
+            libssl-dev \
+            libtool \
+            libtool-bin \
+            pkg-config \
+            unzip \
+            zip \
+            zlib1g-dev
+
+      - name: Upgrade Python packaging tools
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+
+      - name: Install Buildozer and pinned Cython
+        run: |
+          python -m pip install "buildozer==1.5.0" "cython==0.29.34"
+
+      - name: Show build environment
+        run: |
+          python --version
+          java -version
+          buildozer --version
+          echo "JAVA_HOME=$JAVA_HOME"
+
+      # Buildozer owns the SDK/NDK installation for this project.
+      # Do not point it at the runner's unrelated Android SDK.
+      - name: Initialize Buildozer Android environment
+        run: |
+          buildozer android update
+
+      - name: Accept Android SDK licenses
+        shell: bash
+        run: |
+          SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
+
+          mkdir -p "$SDK_DIR/licenses"
+
+          # Standard Android SDK license hashes used by sdkmanager.
+          cat > "$SDK_DIR/licenses/android-sdk-license" <<'EOF'
+          8933bad161af4178b1185d1a37fbf41ea5269c55
+          d56f5187479451eabf01fb78af6dfcb131a6481e
+          24333f8a63b6825ea9c5514f83c2829b004d1fee
+          EOF
+
+          SDKMANAGER="$SDK_DIR/tools/bin/sdkmanager"
+
+          if [ -x "$SDKMANAGER" ]; then
+            yes | "$SDKMANAGER" --sdk_root="$SDK_DIR" --licenses || true
+          else
+            echo "sdkmanager was not found at:"
+            echo "$SDKMANAGER"
+            find "$SDK_DIR" -maxdepth 5 -type f -name sdkmanager -print || true
+          fi
+
+      - name: Verify Android environment
+        run: |
+          echo "Buildozer directory:"
+          ls -la "$HOME/.buildozer/android/platform/" || true
+
+          echo "Android SDK:"
+          ls -la "$HOME/.buildozer/android/platform/android-sdk/" || true
+
+          echo "SDK licenses:"
+          find "$HOME/.buildozer/android/platform/android-sdk/licenses" \
+            -maxdepth 1 -type f -print -exec cat {} \; || true
+
+      - name: Build debug APK
+        run: |
+          buildozer -v android debug
+
+      - name: List generated files
+        if: always()
+        run: |
+          echo "bin/:"
+          ls -lah bin/ || true
+
+          echo ".buildozer:"
+          du -sh .buildozer 2>/dev/null || true
+
+      - name: Upload APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Frahoosh-Mobile-${{ github.run_number }}
+          path: bin/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Buildozer logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Frahoosh-Build-Logs-${{ github.run_number }}
+          path: |
+            .buildozer/**/*.log
+            .buildozer/**/build.log
+          if-no-files-found: ignore
+          retention-days: 7
