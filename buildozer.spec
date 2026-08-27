@@ -18,6 +18,7 @@ android.ndk_api = 23
 android.archs = arm64-v8a,armeabi-v7a
 android.permissions = INTERNET
 android.accept_sdk_license = True
+android.sdk_path = /usr/local/lib/android/sdk
 
 [buildozer]
 log_level = 2
