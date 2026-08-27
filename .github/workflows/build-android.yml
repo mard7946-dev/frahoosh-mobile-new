@@ -9,19 +9,10 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: frahoosh-android-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   build:
     name: Build Frahoosh APK
     runs-on: ubuntu-22.04
-
-    env:
-      PYTHONUNBUFFERED: "1"
-      PIP_DISABLE_PIP_VERSION_CHECK: "1"
-      PYTHONFORANDROID_PREREQUISITES_INSTALL_INTERACTIVE: "0"
 
     steps:
       - name: Checkout
@@ -31,7 +22,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: pip
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
@@ -42,7 +32,20 @@ jobs:
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential ccache git zip unzip autoconf automake libtool pkg-config zlib1g-dev libncurses5-dev libffi-dev libssl-dev
+          sudo apt-get install -y \
+            build-essential \
+            ccache \
+            git \
+            zip \
+            unzip \
+            autoconf \
+            automake \
+            libtool \
+            pkg-config \
+            zlib1g-dev \
+            libncurses5-dev \
+            libffi-dev \
+            libssl-dev
 
       - name: Install Buildozer
         run: |
@@ -50,81 +53,47 @@ jobs:
           python -m pip install buildozer==1.5.0
           python -m pip install cython==0.29.34
 
-      - name: Check environment
-        run: |
-          python --version
-          java -version
-          buildozer --version
-
-      - name: Verify project
+      - name: Check project
         run: |
           test -f buildozer.spec
           test -d mobile
-          echo "Project structure OK"
+          echo "Project OK"
 
-      - name: Prepare Android environment
+      - name: Prepare Android SDK
         run: |
-          buildozer android update
+          SDK="$ANDROID_HOME"
 
-      - name: Accept Android SDK licenses
-        run: |
-          SDK="$HOME/.buildozer/android/platform/android-sdk"
-          mkdir -p "$SDK/licenses"
+          echo "Android SDK: $SDK"
 
-          printf '%s\n' \
-            '8933bad161af4178b1185d1a37fbf41ea5269c55' \
-            'd56f5187479451eabf01fb78af6dfcb131a6481e' \
-            '24333f8a63b6825ea9c5514f83c2829b004d1fee' \
-            > "$SDK/licenses/android-sdk-license"
+          yes | sdkmanager --licenses >/dev/null || true
 
-          echo "Android SDK license file created."
-
-      - name: Install Android Build Tools
-        run: |
-          SDK="$HOME/.buildozer/android/platform/android-sdk"
-
-          SDKMANAGER=$(find "$SDK" -type f -name sdkmanager | head -n 1)
-
-          if [ -z "$SDKMANAGER" ]; then
-            echo "ERROR: sdkmanager not found"
-            find "$SDK" -maxdepth 5 -type f -name sdkmanager -print || true
-            exit 1
-          fi
-
-          chmod +x "$SDKMANAGER"
-
-          echo "Using sdkmanager:"
-          echo "$SDKMANAGER"
-
-          yes | "$SDKMANAGER" --sdk_root="$SDK" --licenses || true
-
-          "$SDKMANAGER" \
-            --sdk_root="$SDK" \
+          sdkmanager \
             "platform-tools" \
             "platforms;android-35" \
             "build-tools;35.0.0"
 
       - name: Verify AIDL
         run: |
-          SDK="$HOME/.buildozer/android/platform/android-sdk"
-          AIDL="$SDK/build-tools/35.0.0/aidl"
+          AIDL="$ANDROID_HOME/build-tools/35.0.0/aidl"
 
           if [ ! -x "$AIDL" ]; then
-            echo "ERROR: AIDL was not installed."
-            find "$SDK/build-tools" -type f -name aidl -print || true
+            echo "ERROR: AIDL not found"
+            find "$ANDROID_HOME/build-tools" -name aidl -print || true
             exit 1
           fi
 
-          echo "AIDL found successfully."
+          echo "AIDL OK:"
+          "$AIDL" --version || true
 
       - name: Build APK
+        env:
+          ANDROID_HOME: ${{ env.ANDROID_HOME }}
         run: |
           buildozer -v android debug
 
       - name: Find APK
         if: always()
         run: |
-          echo "Generated APK files:"
           find bin -type f -name "*.apk" -print 2>/dev/null || true
 
       - name: Upload APK
