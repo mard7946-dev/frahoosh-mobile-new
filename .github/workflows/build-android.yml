@@ -6,51 +6,205 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build:
+    name: Build Frahoosh APK
     runs-on: ubuntu-22.04
+
+    env:
+      PYTHONUNBUFFERED: "1"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+      PYTHONFORANDROID_PREREQUISITES_INSTALL_INTERACTIVE: "0"
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: Setup Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Setup Java
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
-          distribution: "temurin"
+          distribution: temurin
           java-version: "17"
 
-      - name: Install dependencies
+      - name: Install Linux dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential git zip unzip autoconf automake libtool pkg-config zlib1g-dev libncurses5-dev libffi-dev libssl-dev
+          sudo apt-get install -y \
+            build-essential \
+            ccache \
+            git \
+            zip \
+            unzip \
+            autoconf \
+            automake \
+            libtool \
+            pkg-config \
+            zlib1g-dev \
+            libncurses5-dev \
+            libffi-dev \
+            libssl-dev
 
       - name: Install Buildozer
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          python -m pip install buildozer==1.5.0
-          python -m pip install cython==0.29.34
+          python -m pip install "buildozer==1.5.0"
+          python -m pip install "cython==0.29.34"
 
-      - name: Check project
+      - name: Verify project
         run: |
+          echo "Checking Frahoosh project..."
+
           test -f buildozer.spec
           test -d mobile
-          echo "Project OK"
 
-      - name: Check Android SDK
-        run: |
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          ls -la "$ANDROID_HOME"
-          find "$ANDROID_HOME" -type f -name sdkmanager -print | head -10
+          echo "buildozer.spec found"
+          echo "mobile directory found"
 
-      - name: Build APK
+      - name: Prepare Buildozer SDK directory
+        shell: bash
         run: |
+          set -e
+
+          SDK="$HOME/.buildozer/android/platform/android-sdk"
+          RUNNER_SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+
+          echo "Buildozer SDK:"
+          echo "$SDK"
+
+          echo "Runner SDK:"
+          echo "$RUNNER_SDK"
+
+          mkdir -p "$HOME/.buildozer/android/platform"
+
+          if [ ! -d "$SDK" ]; then
+            ln -s "$RUNNER_SDK" "$SDK"
+            echo "Buildozer SDK linked to Runner SDK."
+          else
+            echo "Buildozer SDK already exists."
+          fi
+
+          echo "SDK directory:"
+          ls -la "$SDK"
+
+      - name: Prepare Android SDK tools
+        shell: bash
+        run: |
+          set -e
+
+          SDK="$HOME/.buildozer/android/platform/android-sdk"
+          SDKMANAGER="$SDK/cmdline-tools/latest/bin/sdkmanager"
+
+          echo "SDK:"
+          echo "$SDK"
+
+          echo "Looking for sdkmanager..."
+
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER=$(find "$SDK" -type f -name sdkmanager | head -n 1)
+          fi
+
+          if [ -z "$SDKMANAGER" ] || [ ! -x "$SDKMANAGER" ]; then
+            echo "ERROR: sdkmanager not found."
+            find "$SDK" -type f -name sdkmanager -print || true
+            exit 1
+          fi
+
+          echo "sdkmanager:"
+          echo "$SDKMANAGER"
+
+          "$SDKMANAGER" --version
+
+          echo "Accepting Android SDK licenses..."
+
+          yes | "$SDKMANAGER" \
+            --sdk_root="$SDK" \
+            --licenses || true
+
+          echo "Installing Android SDK components..."
+
+          "$SDKMANAGER" \
+            --sdk_root="$SDK" \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
+
+      - name: Create Buildozer SDK compatibility paths
+        shell: bash
+        run: |
+          set -e
+
+          SDK="$HOME/.buildozer/android/platform/android-sdk"
+
+          echo "Creating compatibility paths..."
+
+          mkdir -p "$SDK/tools/bin"
+
+          if [ -f "$SDK/cmdline-tools/latest/bin/sdkmanager" ]; then
+            ln -sf \
+              "$SDK/cmdline-tools/latest/bin/sdkmanager" \
+              "$SDK/tools/bin/sdkmanager"
+          fi
+
+          if [ -f "$SDK/cmdline-tools/latest/bin/avdmanager" ]; then
+            ln -sf \
+              "$SDK/cmdline-tools/latest/bin/avdmanager" \
+              "$SDK/tools/bin/avdmanager"
+          fi
+
+          echo "Compatibility paths:"
+          ls -la "$SDK/tools/bin"
+
+      - name: Verify Android SDK
+        shell: bash
+        run: |
+          set -e
+
+          SDK="$HOME/.buildozer/android/platform/android-sdk"
+
+          echo "Checking Android platform..."
+          test -d "$SDK/platforms/android-35"
+
+          echo "Checking Build Tools..."
+          test -d "$SDK/build-tools/35.0.0"
+
+          echo "Checking AIDL..."
+          test -x "$SDK/build-tools/35.0.0/aidl"
+
+          echo "AIDL found:"
+          "$SDK/build-tools/35.0.0/aidl" --version || true
+
+          echo "Android SDK verification successful."
+
+      - name: Build Frahoosh APK
+        shell: bash
+        env:
+          ANDROID_HOME: ${{ env.ANDROID_HOME }}
+          ANDROIDSDK: ${{ env.ANDROID_HOME }}
+        run: |
+          set -e
+
+          echo "Starting Buildozer Android build..."
+
           buildozer -v android debug
+
+      - name: Find APK
+        if: always()
+        shell: bash
+        run: |
+          echo "Searching for APK..."
+
+          find bin \
+            -type f \
+            -name "*.apk" \
+            -print 2>/dev/null || true
 
       - name: Upload APK
         if: success()
@@ -59,3 +213,15 @@ jobs:
           name: Frahoosh-Mobile-APK
           path: bin/*.apk
           if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Build Logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Frahoosh-Mobile-Build-Logs
+          path: |
+            .buildozer/**/*.log
+            .buildozer/**/build.log
+          if-no-files-found: ignore
+          retention-days: 7
