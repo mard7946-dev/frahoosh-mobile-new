@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.buildozer/
+bin/
+.venv/
+venv/
+mobile/storage/session.json
+.env
+.DS_Store
