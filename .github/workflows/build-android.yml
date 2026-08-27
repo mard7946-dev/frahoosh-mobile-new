@@ -22,8 +22,6 @@ jobs:
       PYTHONUNBUFFERED: "1"
       PIP_DISABLE_PIP_VERSION_CHECK: "1"
       PYTHONFORANDROID_PREREQUISITES_INSTALL_INTERACTIVE: "0"
-      FRAHOOSH_SUPABASE_URL: ${{ secrets.FRAHOOSH_SUPABASE_URL }}
-      FRAHOOSH_SUPABASE_ANON_KEY: ${{ secrets.FRAHOOSH_SUPABASE_ANON_KEY }}
 
     steps:
       - name: Checkout
@@ -77,15 +75,13 @@ jobs:
           test -d mobile
           echo "Project structure OK"
 
-      - name: Prepare Buildozer Android environment
+      - name: Prepare Android environment
         run: |
           buildozer android update
 
       - name: Accept Android SDK licenses
         run: |
           SDK="$HOME/.buildozer/android/platform/android-sdk"
-
-          echo "SDK = $SDK"
 
           mkdir -p "$SDK/licenses"
 
@@ -95,27 +91,24 @@ d56f5187479451eabf01fb78af6dfcb131a6481e
 24333f8a63b6825ea9c5514f83c2829b004d1fee
 EOF
 
-          echo "License file:"
+          echo "SDK:"
+          echo "$SDK"
+
+          echo "Licenses:"
           cat "$SDK/licenses/android-sdk-license"
 
-          echo "SDK manager:"
-          find "$SDK" -type f -name sdkmanager -print
-
-      - name: Install required Android packages
+      - name: Install Android Build Tools
         run: |
           SDK="$HOME/.buildozer/android/platform/android-sdk"
 
           SDKMANAGER=$(find "$SDK" -type f -name sdkmanager | head -n 1)
 
           if [ -z "$SDKMANAGER" ]; then
-            echo "sdkmanager not found"
+            echo "ERROR: sdkmanager not found"
             exit 1
           fi
 
           chmod +x "$SDKMANAGER"
-
-          echo "Using sdkmanager:"
-          echo "$SDKMANAGER"
 
           yes | "$SDKMANAGER" \
             --sdk_root="$SDK" \
@@ -127,14 +120,15 @@ EOF
             "platforms;android-35" \
             "build-tools;35.0.0"
 
-      - name: Verify Android Build Tools
+      - name: Verify AIDL
         run: |
           SDK="$HOME/.buildozer/android/platform/android-sdk"
 
-          echo "Installed Build Tools:"
-          find "$SDK/build-tools" -maxdepth 2 -type f -name aidl -print || true
-
-          test -x "$SDK/build-tools/35.0.0/aidl"
+          if [ ! -x "$SDK/build-tools/35.0.0/aidl" ]; then
+            echo "ERROR: AIDL was not installed"
+            find "$SDK/build-tools" -maxdepth 2 -type f -name aidl -print || true
+            exit 1
+          fi
 
           echo "AIDL found successfully."
 
@@ -142,9 +136,10 @@ EOF
         run: |
           buildozer -v android debug
 
-      - name: List APK
+      - name: Find APK
         if: always()
         run: |
+          echo "Generated APK files:"
           find bin -type f -name "*.apk" -print 2>/dev/null || true
 
       - name: Upload APK
@@ -156,7 +151,7 @@ EOF
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload build logs
+      - name: Upload logs
         if: failure()
         uses: actions/upload-artifact@v4
         with:
