@@ -42,26 +42,13 @@ jobs:
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            ccache \
-            git \
-            zip \
-            unzip \
-            autoconf \
-            automake \
-            libtool \
-            pkg-config \
-            zlib1g-dev \
-            libncurses5-dev \
-            libffi-dev \
-            libssl-dev
+          sudo apt-get install -y build-essential ccache git zip unzip autoconf automake libtool pkg-config zlib1g-dev libncurses5-dev libffi-dev libssl-dev
 
       - name: Install Buildozer
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          python -m pip install "buildozer==1.5.0"
-          python -m pip install "cython==0.29.34"
+          python -m pip install buildozer==1.5.0
+          python -m pip install cython==0.29.34
 
       - name: Check environment
         run: |
@@ -82,20 +69,15 @@ jobs:
       - name: Accept Android SDK licenses
         run: |
           SDK="$HOME/.buildozer/android/platform/android-sdk"
-
           mkdir -p "$SDK/licenses"
 
-          cat > "$SDK/licenses/android-sdk-license" <<'EOF'
-8933bad161af4178b1185d1a37fbf41ea5269c55
-d56f5187479451eabf01fb78af6dfcb131a6481e
-24333f8a63b6825ea9c5514f83c2829b004d1fee
-EOF
+          printf '%s\n' \
+            '8933bad161af4178b1185d1a37fbf41ea5269c55' \
+            'd56f5187479451eabf01fb78af6dfcb131a6481e' \
+            '24333f8a63b6825ea9c5514f83c2829b004d1fee' \
+            > "$SDK/licenses/android-sdk-license"
 
-          echo "SDK:"
-          echo "$SDK"
-
-          echo "Licenses:"
-          cat "$SDK/licenses/android-sdk-license"
+          echo "Android SDK license file created."
 
       - name: Install Android Build Tools
         run: |
@@ -105,14 +87,16 @@ EOF
 
           if [ -z "$SDKMANAGER" ]; then
             echo "ERROR: sdkmanager not found"
+            find "$SDK" -maxdepth 5 -type f -name sdkmanager -print || true
             exit 1
           fi
 
           chmod +x "$SDKMANAGER"
 
-          yes | "$SDKMANAGER" \
-            --sdk_root="$SDK" \
-            --licenses || true
+          echo "Using sdkmanager:"
+          echo "$SDKMANAGER"
+
+          yes | "$SDKMANAGER" --sdk_root="$SDK" --licenses || true
 
           "$SDKMANAGER" \
             --sdk_root="$SDK" \
@@ -123,10 +107,11 @@ EOF
       - name: Verify AIDL
         run: |
           SDK="$HOME/.buildozer/android/platform/android-sdk"
+          AIDL="$SDK/build-tools/35.0.0/aidl"
 
-          if [ ! -x "$SDK/build-tools/35.0.0/aidl" ]; then
-            echo "ERROR: AIDL was not installed"
-            find "$SDK/build-tools" -maxdepth 2 -type f -name aidl -print || true
+          if [ ! -x "$AIDL" ]; then
+            echo "ERROR: AIDL was not installed."
+            find "$SDK/build-tools" -type f -name aidl -print || true
             exit 1
           fi
 
