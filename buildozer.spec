@@ -19,6 +19,7 @@ android.archs = arm64-v8a,armeabi-v7a
 android.permissions = INTERNET
 android.accept_sdk_license = True
 android.sdk_path = /usr/local/lib/android/sdk
+android.skip_update = True
 
 [buildozer]
 log_level = 2
