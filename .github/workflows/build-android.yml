@@ -108,8 +108,7 @@ jobs:
           yes | sdkmanager --sdk_root="$SDK" --licenses || true
 
           echo "License files after acceptance:"
-          find "$SDK/licenses" -maxdepth 1 -type f -print -exec sh -c 'echo --- $1; cat "$1"' _ {} \\;
-
+          
       - name: Install Android SDK components
         shell: bash
         run: |
