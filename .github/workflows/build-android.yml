@@ -118,7 +118,7 @@ jobs:
 
           # Buildozer/python-for-android currently requests Build-Tools 37.
           # Install that exact version in addition to API 35.
-          yes | sdkmanager --sdk_root="$SDK" \
+           sdkmanager --sdk_root="$SDK" \
             "platform-tools" \
             "platforms;android-35" \
             "build-tools;35.0.0" \
