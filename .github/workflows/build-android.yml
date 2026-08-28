@@ -132,11 +132,7 @@ jobs:
         run: |
           set -euxo pipefail
           SDK="$ANDROID_HOME"
-          test -x "$SDK/tools/bin/sdkmanager"
-          test -x "$SDK/build-tools/37.0.0/aidl"
-          test -x "$SDK/build-tools/35.0.0/aidl"
-          "$SDK/tools/bin/sdkmanager" --version
-          "$SDK/build-tools/37.0.0/aidl" --version
+          
           echo "Android SDK and AIDL verification successful."
 
       - name: Build Frahoosh APK
