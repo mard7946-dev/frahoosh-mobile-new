@@ -133,8 +133,7 @@ jobs:
           set -euxo pipefail
           SDK="$ANDROID_HOME"
           
-          echo "Android SDK and AIDL verification successful."
-
+         
       - name: Build Frahoosh APK
         shell: bash
         run: |
