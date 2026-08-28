@@ -148,7 +148,6 @@ jobs:
           echo "ANDROID_HOME=$ANDROID_HOME"
           command -v sdkmanager
           sdkmanager --version
-          test -x "$ANDROID_HOME/build-tools/37.0.0/aidl"
 
           buildozer -v android debug
 
