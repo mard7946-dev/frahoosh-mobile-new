@@ -17,9 +17,12 @@ jobs:
     env:
       PYTHONUNBUFFERED: "1"
       PIP_DISABLE_PIP_VERSION_CHECK: "1"
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
       PYTHONFORANDROID_PREREQUISITES_INSTALL_INTERACTIVE: "0"
 
     steps:
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -83,14 +86,17 @@ jobs:
         run: |
           set -e
 
-          echo "===== Python ====="
+          echo "===== PYTHON ====="
           python --version
 
-          echo "===== Java ====="
+          echo "===== JAVA ====="
           java -version
 
-          echo "===== Buildozer ====="
+          echo "===== BUILDOZER ====="
           buildozer --version
+
+          echo "===== ANDROID HOME ====="
+          echo "$ANDROID_HOME"
 
       - name: Verify project
         shell: bash
@@ -100,10 +106,10 @@ jobs:
           test -f buildozer.spec
           test -d mobile
 
-          echo "===== buildozer.spec ====="
+          echo "===== BUILDOZER SPEC ====="
           cat buildozer.spec
 
-          echo "===== Mobile files ====="
+          echo "===== MOBILE FILES ====="
           find mobile -maxdepth 3 -type f | sort
 
       - name: Prepare Android SDK
@@ -111,53 +117,50 @@ jobs:
         run: |
           set -e
 
-          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDK="$ANDROID_HOME"
 
           echo "======================================"
-          echo "Android SDK"
+          echo "ANDROID SDK"
           echo "$SDK"
           echo "======================================"
 
-          if [ ! -d "$SDK" ]; then
-            echo "ERROR: Android SDK directory not found."
-            exit 1
-          fi
-
-          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
-          echo "ANDROIDSDK=$SDK" >> "$GITHUB_ENV"
+          test -d "$SDK"
 
           SDKMANAGER="$SDK/cmdline-tools/latest/bin/sdkmanager"
 
           if [ ! -f "$SDKMANAGER" ]; then
-            SDKMANAGER=$(find "$SDK" \
-              -type f \
-              -name sdkmanager \
-              | head -n 1)
+            SDKMANAGER="$(find "$SDK" -type f -name sdkmanager | head -n 1)"
           fi
 
           if [ -z "$SDKMANAGER" ] || [ ! -f "$SDKMANAGER" ]; then
-            echo "ERROR: sdkmanager not found."
+            echo "ERROR: sdkmanager not found"
+
             find "$SDK" \
               -maxdepth 7 \
               -type f \
               -name sdkmanager \
               -print || true
+
             exit 1
           fi
 
-          echo "Using sdkmanager:"
+          echo "SDKMANAGER:"
           echo "$SDKMANAGER"
 
-          echo "sdkmanager version:"
+          echo "SDKMANAGER VERSION:"
           "$SDKMANAGER" --version
 
-          echo "Accepting Android SDK licenses..."
+          echo "======================================"
+          echo "ACCEPTING ANDROID LICENSES"
+          echo "======================================"
 
           yes | "$SDKMANAGER" \
             --sdk_root="$SDK" \
             --licenses || true
 
-          echo "Installing required Android SDK packages..."
+          echo "======================================"
+          echo "INSTALLING REQUIRED SDK COMPONENTS"
+          echo "======================================"
 
           "$SDKMANAGER" \
             --sdk_root="$SDK" \
@@ -165,77 +168,60 @@ jobs:
             "platforms;android-35" \
             "build-tools;35.0.0"
 
-          echo "Checking required Build Tools..."
+          echo "======================================"
+          echo "VERIFYING BUILD TOOLS"
+          echo "======================================"
 
           test -d "$SDK/build-tools/35.0.0"
-
-          echo "Checking AIDL..."
-
           test -x "$SDK/build-tools/35.0.0/aidl"
 
+          echo "AIDL:"
           "$SDK/build-tools/35.0.0/aidl" --version || true
 
-          echo "Android SDK preparation complete."
+          echo "ANDROID SDK READY"
 
-      - name: Detect Android NDK
+      - name: Prepare Android NDK
         shell: bash
         run: |
           set -e
 
-          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDK="$ANDROID_HOME"
 
-          echo "Searching for installed Android NDK..."
+          echo "Searching installed NDK..."
 
           if [ ! -d "$SDK/ndk" ]; then
-            echo "ERROR: NDK directory does not exist."
-            exit 1
+            echo "Installing NDK 28c..."
+
+            SDKMANAGER="$SDK/cmdline-tools/latest/bin/sdkmanager"
+
+            if [ ! -f "$SDKMANAGER" ]; then
+              SDKMANAGER="$(find "$SDK" -type f -name sdkmanager | head -n 1)"
+            fi
+
+            "$SDKMANAGER" \
+              --sdk_root="$SDK" \
+              "ndk;28.2.13676358"
           fi
 
-          NDK="$(
-            find "$SDK/ndk" \
-              -mindepth 1 \
-              -maxdepth 1 \
-              -type d \
-              | sort -V \
-              | tail -n 1
-          )"
+          NDK="$(find "$SDK/ndk" \
+            -mindepth 1 \
+            -maxdepth 1 \
+            -type d \
+            | sort -V \
+            | tail -n 1)"
 
           if [ -z "$NDK" ]; then
-            echo "ERROR: Android NDK not found."
-            find "$SDK/ndk" -maxdepth 2 -type d -print || true
+            echo "ERROR: NDK not found"
             exit 1
           fi
-
-          echo "Detected NDK:"
-          echo "$NDK"
-
-          echo "ANDROIDNDK=$NDK" >> "$GITHUB_ENV"
-
-      - name: Configure Buildozer Android paths
-        shell: bash
-        run: |
-          set -e
-
-          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
-          NDK="$ANDROIDNDK"
-
-          echo "SDK:"
-          echo "$SDK"
 
           echo "NDK:"
           echo "$NDK"
 
-          cat >> buildozer.spec <<EOF
+          echo "ANDROID_NDK_HOME=$NDK" >> "$GITHUB_ENV"
+          echo "ANDROIDNDK=$NDK" >> "$GITHUB_ENV"
 
-          # CI Android SDK configuration
-          android.sdk_path = $SDK
-          android.ndk_path = $NDK
-          EOF
-
-          echo "===== Final buildozer.spec ====="
-          cat buildozer.spec
-
-      - name: Clean Buildozer state
+      - name: Clean Buildozer
         shell: bash
         run: |
           set -e
@@ -243,29 +229,41 @@ jobs:
           rm -rf .buildozer
           rm -rf bin
 
-          echo "Buildozer state cleaned."
+          echo "Buildozer cache cleaned."
 
-      - name: Verify Android configuration
+      - name: Verify SDK paths
         shell: bash
         run: |
           set -e
 
+          echo "======================================"
+          echo "FINAL ANDROID CONFIGURATION"
+          echo "======================================"
+
           echo "ANDROID_HOME:"
           echo "$ANDROID_HOME"
 
-          echo "ANDROIDSDK:"
-          echo "$ANDROIDSDK"
+          echo "ANDROID_SDK_ROOT:"
+          echo "$ANDROID_SDK_ROOT"
+
+          echo "ANDROID_NDK_HOME:"
+          echo "$ANDROID_NDK_HOME"
 
           echo "ANDROIDNDK:"
           echo "$ANDROIDNDK"
+
+          echo "===== SDK ====="
 
           test -d "$ANDROID_HOME"
           test -d "$ANDROID_HOME/platforms/android-35"
           test -d "$ANDROID_HOME/build-tools/35.0.0"
           test -x "$ANDROID_HOME/build-tools/35.0.0/aidl"
-          test -d "$ANDROIDNDK"
 
-          echo "Android configuration OK."
+          echo "===== NDK ====="
+
+          test -d "$ANDROID_NDK_HOME"
+
+          echo "SDK and NDK are ready."
 
       - name: Build Frahoosh APK
         shell: bash
@@ -273,16 +271,18 @@ jobs:
           set -e
 
           echo "======================================"
-          echo "STARTING FRAHOOSH ANDROID BUILD"
+          echo "STARTING FRAHOOSH APK BUILD"
           echo "======================================"
 
           buildozer -v android debug
 
-      - name: Find APK
+      - name: Search APK
         if: always()
         shell: bash
         run: |
-          echo "===== APK SEARCH ====="
+          echo "======================================"
+          echo "APK SEARCH"
+          echo "======================================"
 
           find . \
             -type f \
