@@ -37,7 +37,6 @@ jobs:
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
-
           sudo apt-get install -y \
             build-essential \
             ccache \
@@ -53,7 +52,6 @@ jobs:
             zlib1g-dev \
             libncurses5-dev \
             libncursesw5-dev \
-            libtinfo5 \
             libffi-dev \
             libssl-dev \
             cmake \
@@ -105,24 +103,28 @@ jobs:
 
           SDKMANAGER="$SDK/cmdline-tools/latest/bin/sdkmanager"
 
-          if [ ! -x "$SDKMANAGER" ]; then
+          if [ ! -f "$SDKMANAGER" ]; then
             SDKMANAGER=$(find "$SDK" -type f -name sdkmanager | head -n 1)
           fi
 
-          if [ -z "$SDKMANAGER" ]; then
+          if [ -z "$SDKMANAGER" ] || [ ! -f "$SDKMANAGER" ]; then
             echo "ERROR: sdkmanager not found"
-            find "$SDK" -maxdepth 5 -type f -name sdkmanager -print || true
+            find "$SDK" -maxdepth 6 -type f -name sdkmanager -print || true
             exit 1
           fi
 
-          chmod +x "$SDKMANAGER"
-
           echo "sdkmanager:"
+          echo "$SDKMANAGER"
+
           "$SDKMANAGER" --version
+
+          echo "Accepting Android SDK licenses..."
 
           yes | "$SDKMANAGER" \
             --sdk_root="$SDK" \
             --licenses || true
+
+          echo "Installing Android SDK components..."
 
           "$SDKMANAGER" \
             --sdk_root="$SDK" \
@@ -130,7 +132,11 @@ jobs:
             "platforms;android-35" \
             "build-tools;35.0.0"
 
+          echo "Checking AIDL..."
+
           test -x "$SDK/build-tools/35.0.0/aidl"
+
+          "$SDK/build-tools/35.0.0/aidl" --version || true
 
           echo "Android SDK ready."
 
