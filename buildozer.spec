@@ -10,7 +10,8 @@ source.exclude_dirs = __pycache__,.git,bin,.buildozer,tests
 
 version = 1.0.0
 
-requirements = python3,kivy,requests
+# فقط وابستگی‌های لازم برای خود برنامه
+requirements = python3,kivy
 
 orientation = portrait
 fullscreen = 0
