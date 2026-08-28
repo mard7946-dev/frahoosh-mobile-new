@@ -20,6 +20,9 @@ android.permissions = INTERNET
 android.accept_sdk_license = True
 android.skip_update = 0
 
+p4a.branch = develop
+p4a.commit = HEAD
+
 [buildozer]
 log_level = 2
 warn_on_root = 0
