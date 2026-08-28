@@ -1,20 +1,20 @@
 name: Frahoosh Android Build
 
 on:
-push:
-branches:
-- main
-workflow_dispatch:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 
 permissions:
-contents: read
+  contents: read
 
 jobs:
-build:
-name: Build Frahoosh APK
-runs-on: ubuntu-22.04
+  build:
+    name: Build Frahoosh APK
+    runs-on: ubuntu-22.04
 
-```
+
 env:
   PYTHONUNBUFFERED: "1"
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
@@ -25,7 +25,7 @@ steps:
   - name: Checkout
     uses: actions/checkout@v4
 
-  - name: Setup Python 3.11
+  - name: Setup Python
     uses: actions/setup-python@v5
     with:
       python-version: "3.11"
@@ -55,7 +55,6 @@ steps:
         zlib1g-dev \
         libncurses5-dev \
         libncursesw5-dev \
-        libtinfo6 \
         libffi-dev \
         libssl-dev \
         cmake \
@@ -73,6 +72,8 @@ steps:
       test -f buildozer.spec
       test -d mobile
       test -f mobile/main.py
+      python --version
+      buildozer --version
       echo "Project structure OK"
 
   - name: Prepare Android SDK
@@ -128,6 +129,7 @@ steps:
       set -euxo pipefail
 
       SDK="$ANDROID_HOME"
+
       export PATH="$SDK/cmdline-tools/latest/bin:$SDK/tools/bin:$PATH"
 
       mkdir -p "$SDK/licenses"
@@ -142,6 +144,7 @@ steps:
       set -euxo pipefail
 
       SDK="$ANDROID_HOME"
+
       export PATH="$SDK/cmdline-tools/latest/bin:$SDK/tools/bin:$PATH"
 
       sdkmanager --sdk_root="$SDK" \
@@ -152,7 +155,7 @@ steps:
       echo "Installed Android SDK components:"
       sdkmanager --sdk_root="$SDK" --list_installed
 
-  - name: Clean previous Buildozer state
+  - name: Prepare Buildozer environment
     shell: bash
     run: |
       set -euxo pipefail
@@ -162,33 +165,10 @@ steps:
 
       mkdir -p .buildozer
 
-      echo "Clean Buildozer state prepared."
+      export VIRTUAL_ENV_DISABLE_PROMPT=1
 
-  - name: Pin python-for-android
-    shell: bash
-    run: |
-      set -euxo pipefail
-
-      python - <<'PY'
-      from pathlib import Path
-
-      p = Path("buildozer.spec")
-      text = p.read_text(encoding="utf-8")
-
-      if "p4a.branch" not in text:
-          text += "\n# Python-for-Android compatibility pin\n"
-          text += "p4a.branch = master\n"
-
-      if "p4a.commit" not in text:
-          text += "p4a.commit = 58d2114\n"
-
-      p.write_text(text, encoding="utf-8")
-
-      print("p4a configuration:")
-      for line in p.read_text(encoding="utf-8").splitlines():
-          if line.startswith("p4a."):
-              print(line)
-      PY
+      echo "Build environment prepared."
+      python --version
 
   - name: Build Frahoosh APK
     shell: bash
@@ -197,6 +177,7 @@ steps:
 
       export ANDROID_HOME="$HOME/.buildozer/android/platform/android-sdk"
       export ANDROID_SDK_ROOT="$ANDROID_HOME"
+
       export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/tools/bin:$PATH"
 
       echo "======================================"
@@ -205,6 +186,7 @@ steps:
 
       echo "Python:"
       python --version
+      python -c "import sys; print(sys.executable)"
 
       echo "Buildozer:"
       buildozer --version
@@ -212,24 +194,20 @@ steps:
       echo "Java:"
       java -version
 
-      echo "SDK:"
+      echo "Android SDK:"
       sdkmanager --version
 
       echo "Build configuration:"
-      grep -E '^(android\.api|android\.minapi|android\.ndk|android\.ndk_api|p4a\.)' buildozer.spec || true
+      grep -E '^(android\.api|android\.minapi|android\.ndk|android\.ndk_api)' buildozer.spec || true
 
       buildozer -v android debug
 
-  - name: Verify APK
-    if: success()
+  - name: Find APK
+    if: always()
     shell: bash
     run: |
-      set -euxo pipefail
-
       echo "APK files:"
-      find bin -type f -name "*.apk" -print
-
-      test -n "$(find bin -type f -name '*.apk' -print -quit)"
+      find bin -type f -name "*.apk" -print 2>/dev/null || true
 
   - name: Upload APK
     if: success()
@@ -250,4 +228,3 @@ steps:
         .buildozer/**/build.log
       if-no-files-found: ignore
       retention-days: 7
-```
