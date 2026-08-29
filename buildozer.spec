@@ -26,7 +26,8 @@ android.minapi = 24
 android.ndk = 28c
 android.ndk_api = 24
 
-android.archs = arm64-v8a,armeabi-v7a
+# فعلاً فقط معماری اصلی و پایدار اندروید
+android.archs = arm64-v8a
 
 android.permissions = INTERNET
 android.accept_sdk_license = True
@@ -37,8 +38,9 @@ android.skip_update = 0
 # Python-for-Android
 # ============================================================
 
-p4a.branch = develop
-p4a.commit = 0382d27
+# استفاده از Release پایدار، نه develop
+p4a.branch = master
+p4a.commit = 58d2114
 
 
 # ============================================================
