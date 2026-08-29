@@ -1,48 +1,36 @@
 [app]
 
-title = Frahoosh Mobile
-package.name = frahooshmobile
+title = Frahoosh
+package.name = frahoosh
 package.domain = ir.frahoosh
 
-source.dir = mobile
-source.include_exts = py,png,jpg,jpeg,svg,kv,json,txt,ttf
-source.exclude_dirs = __pycache__,.git,bin,.buildozer,tests
+source.dir = .
+source.include_exts = py,png,jpg,jpeg,kv,json,atlas,ttf,otf
 
 version = 1.0.0
 
-requirements = python3,kivy,requests
+requirements = python3==3.11.10,kivy
 
 orientation = portrait
 fullscreen = 0
 
-# ============================================================
-# Android
-# ============================================================
-
 android.api = 35
 android.minapi = 24
-
 android.ndk = 28c
 android.ndk_api = 24
 
-android.archs = arm64-v8a,armeabi-v7a
+android.archs = arm64-v8a
 
-android.permissions = INTERNET
 android.accept_sdk_license = True
-android.skip_update = 0
 
-# ============================================================
-# Python-for-Android
-# ============================================================
+android.permissions = INTERNET,ACCESS_NETWORK_STATE
 
-p4a.branch = develop
-p4a.commit = 7af1d13
+android.enable_androidx = True
 
-# ============================================================
-# Buildozer
-# ============================================================
+p4a.bootstrap = sdl2
+
 
 [buildozer]
 
 log_level = 2
-warn_on_root = 0
+warn_on_root = 1
