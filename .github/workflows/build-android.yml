@@ -22,36 +22,19 @@ jobs:
 
     steps:
 
-      # ============================================================
-      # Checkout
-      # ============================================================
-
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ============================================================
-      # Python
-      # ============================================================
-
-      - name: Setup Python
+      - name: Setup Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: pip
-
-      # ============================================================
-      # Java
-      # ============================================================
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
-
-      # ============================================================
-      # Linux dependencies
-      # ============================================================
 
       - name: Install Linux dependencies
         run: |
@@ -77,41 +60,23 @@ jobs:
             cmake \
             python3-virtualenv
 
-      # ============================================================
-      # Buildozer
-      # ============================================================
-
       - name: Install Buildozer
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install setuptools wheel
+          python -m pip install --upgrade pip setuptools wheel
           python -m pip install "buildozer==1.5.0"
           python -m pip install "cython==0.29.36"
-
-      # ============================================================
-      # Verify project
-      # ============================================================
 
       - name: Verify project
         run: |
           set -eux
 
           test -f buildozer.spec
-          test -d mobile
           test -f mobile/main.py
-
-          echo "======================================"
-          echo "PROJECT STRUCTURE"
-          echo "======================================"
+          test -f mobile/config.py
+          test -f mobile/services/api.py
 
           python --version
           buildozer --version
-
-          echo "Project structure OK"
-
-      # ============================================================
-      # Prepare Android SDK
-      # ============================================================
 
       - name: Prepare Android SDK
         shell: bash
@@ -161,12 +126,7 @@ jobs:
 
           export PATH="$SDK/cmdline-tools/latest/bin:$SDK/tools/bin:$PATH"
 
-          command -v sdkmanager
           sdkmanager --version
-
-      # ============================================================
-      # Android licenses
-      # ============================================================
 
       - name: Accept Android SDK licenses
         shell: bash
@@ -177,19 +137,11 @@ jobs:
 
           export PATH="$SDK/cmdline-tools/latest/bin:$SDK/tools/bin:$PATH"
 
-          mkdir -p "$SDK/licenses"
-
           yes | sdkmanager \
             --sdk_root="$SDK" \
             --licenses || true
 
-          echo "Android SDK licenses accepted."
-
-      # ============================================================
-      # Android SDK components
-      # ============================================================
-
-      - name: Install Android SDK components
+      - name: Install Android SDK
         shell: bash
         run: |
           set -euxo pipefail
@@ -203,19 +155,7 @@ jobs:
             "platforms;android-35" \
             "build-tools;35.0.0"
 
-          echo "======================================"
-          echo "INSTALLED SDK COMPONENTS"
-          echo "======================================"
-
-          sdkmanager \
-            --sdk_root="$SDK" \
-            --list_installed
-
-      # ============================================================
-      # Clean Buildozer
-      # ============================================================
-
-      - name: Prepare Buildozer environment
+      - name: Clean Buildozer
         shell: bash
         run: |
           set -euxo pipefail
@@ -224,12 +164,6 @@ jobs:
           rm -rf bin
 
           mkdir -p .buildozer
-
-          echo "Build environment prepared."
-
-      # ============================================================
-      # Build APK
-      # ============================================================
 
       - name: Build Frahoosh APK
         shell: bash
@@ -242,55 +176,31 @@ jobs:
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/tools/bin:$PATH"
 
           echo "======================================"
-          echo "STARTING FRAHOOSH APK BUILD"
+          echo "FRAHOOSH BUILD"
           echo "======================================"
 
-          echo "Python:"
           python --version
-
-          echo "Buildozer:"
           buildozer --version
-
-          echo "Java:"
           java -version
-
-          echo "Android SDK:"
           sdkmanager --version
 
           echo "======================================"
-          echo "BUILD CONFIGURATION"
+          echo "BUILD SPEC"
           echo "======================================"
 
-          grep -E \
-            '^(android\.api|android\.minapi|android\.ndk|android\.ndk_api|requirements)' \
-            buildozer.spec || true
+          cat buildozer.spec
 
           echo "======================================"
-          echo "START BUILD"
+          echo "BUILD"
           echo "======================================"
 
           buildozer -v android debug
 
-      # ============================================================
-      # Find APK
-      # ============================================================
-
       - name: Find APK
         if: always()
-        shell: bash
         run: |
-          echo "======================================"
-          echo "APK FILES"
-          echo "======================================"
-
-          find bin \
-            -type f \
-            -name "*.apk" \
-            -print 2>/dev/null || true
-
-      # ============================================================
-      # Upload APK
-      # ============================================================
+          echo "APK files:"
+          find bin -type f -name "*.apk" -print 2>/dev/null || true
 
       - name: Upload APK
         if: success()
@@ -300,10 +210,6 @@ jobs:
           path: bin/*.apk
           if-no-files-found: error
           retention-days: 14
-
-      # ============================================================
-      # Upload logs if build fails
-      # ============================================================
 
       - name: Upload Build Logs
         if: failure()
@@ -315,3 +221,4 @@ jobs:
             .buildozer/**/build.log
           if-no-files-found: ignore
           retention-days: 7
+```
