@@ -41,6 +41,7 @@ android.skip_update = 0
 # چون recipe مربوط به charset-normalizer در آن وجود دارد.
 
 p4a.branch = develop
+p4a.commit = 7af1d13
 
 
 # ============================================================
