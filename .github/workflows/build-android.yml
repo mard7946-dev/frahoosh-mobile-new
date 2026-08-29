@@ -8,6 +8,7 @@ permissions:
 
 jobs:
   build:
+    name: Build Frahoosh APK
     runs-on: ubuntu-22.04
 
     steps:
@@ -22,10 +23,10 @@ jobs:
       - name: Setup Java
         uses: actions/setup-java@v5
         with:
-          distribution: "temurin"
+          distribution: temurin
           java-version: "17"
 
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -53,23 +54,59 @@ jobs:
           python -m pip install buildozer==1.5.0
           python -m pip install cython==0.29.36
 
-      - name: Check project
+      - name: Verify project
         run: |
+          set -euxo pipefail
+
           test -f buildozer.spec
           test -f mobile/main.py
+
+          echo "======================================"
+          echo "FRAHOOSH BUILD CONFIGURATION"
+          echo "======================================"
+
           python --version
           buildozer --version
+          java -version
+
+          echo
+          echo "----- buildozer.spec -----"
+          grep -E \
+            '^(title|package.name|package.domain|source.dir|version|requirements|android.api|android.minapi|android.ndk|android.ndk_api|android.archs|p4a.branch|p4a.commit)' \
+            buildozer.spec || true
+
+      - name: Clean Build
+        run: |
+          set -euxo pipefail
+
+          rm -rf .buildozer
+          rm -rf bin
 
       - name: Build APK
         run: |
-          rm -rf .buildozer
-          rm -rf bin
+          set -euxo pipefail
+
+          echo "======================================"
+          echo "STARTING FRAHOOSH APK BUILD"
+          echo "======================================"
+
           buildozer -v android debug
 
-      - name: Find APK
+      - name: Show Build Output
         if: always()
         run: |
-          find bin -type f -name "*.apk" -print || true
+          echo "======================================"
+          echo "APK FILES"
+          echo "======================================"
+
+          find . -type f -name "*.apk" -print || true
+
+          echo
+          echo "======================================"
+          echo "BIN DIRECTORY"
+          echo "======================================"
+
+          ls -lah bin 2>/dev/null || true
 
       - name: Upload APK
         if: success()
@@ -79,4 +116,3 @@ jobs:
           path: bin/*.apk
           if-no-files-found: error
           retention-days: 14
-
