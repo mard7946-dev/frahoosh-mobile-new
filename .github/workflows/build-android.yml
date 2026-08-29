@@ -13,16 +13,16 @@ jobs:
 
     steps:
 
-      # ============================================
+      # ============================================================
       # CHECKOUT
-      # ============================================
+      # ============================================================
 
       - name: Checkout source
         uses: actions/checkout@v4
 
-      # ============================================
-      # PYTHON 3.11
-      # ============================================
+      # ============================================================
+      # PYTHON 3.11 HOST
+      # ============================================================
 
       - name: Setup Python 3.11
         uses: actions/setup-python@v5
@@ -30,9 +30,9 @@ jobs:
           python-version: "3.11.10"
           cache: "pip"
 
-      # ============================================
+      # ============================================================
       # JAVA 17
-      # ============================================
+      # ============================================================
 
       - name: Setup Java 17
         uses: actions/setup-java@v5
@@ -40,9 +40,9 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      # ============================================
-      # SYSTEM PACKAGES
-      # ============================================
+      # ============================================================
+      # SYSTEM DEPENDENCIES
+      # ============================================================
 
       - name: Install system dependencies
         shell: bash
@@ -69,9 +69,9 @@ jobs:
             libssl-dev \
             ccache
 
-      # ============================================
-      # VERIFY ENVIRONMENT
-      # ============================================
+      # ============================================================
+      # VERIFY HOST ENVIRONMENT
+      # ============================================================
 
       - name: Verify environment
         shell: bash
@@ -83,21 +83,34 @@ jobs:
           echo "======================================"
 
           python --version
-          python -c "import sys; print('Python executable:', sys.executable)"
-          python -c "print('Python version:', __import__('sys').version)"
+
+          python - <<'PY'
+          import sys
+
+          print("Python executable:", sys.executable)
+          print("Python version:", sys.version)
+
+          if sys.version_info[:2] != (3, 11):
+              raise SystemExit(
+                  "ERROR: Host Python must be 3.11"
+              )
+          PY
 
           java -version
 
-      # ============================================
-      # INSTALL BUILD TOOLS
-      # ============================================
+      # ============================================================
+      # INSTALL BUILDOZER
+      # ============================================================
 
       - name: Install Buildozer
         shell: bash
         run: |
           set -euxo pipefail
 
-          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install --upgrade \
+            pip \
+            setuptools \
+            wheel
 
           python -m pip install \
             "buildozer==1.5.0" \
@@ -105,9 +118,9 @@ jobs:
 
           buildozer --version
 
-      # ============================================
+      # ============================================================
       # VERIFY BUILD CONFIGURATION
-      # ============================================
+      # ============================================================
 
       - name: Verify build configuration
         shell: bash
@@ -123,16 +136,29 @@ jobs:
             buildozer.spec || true
 
           echo "======================================"
-          echo "PYTHON REQUIREMENT CHECK"
+          echo "PYTHON REQUIREMENT"
           echo "======================================"
 
           grep -n \
-            'requirements' \
+            '^requirements' \
             buildozer.spec || true
 
-      # ============================================
-      # CLEAN EVERYTHING
-      # ============================================
+          echo "======================================"
+          echo "CHECK FOR INVALID PYTHON PIN"
+          echo "======================================"
+
+          if grep -q 'python3==3.11.10' buildozer.spec; then
+            echo "ERROR: buildozer.spec still pins python3 to 3.11.10"
+            echo "Change it to:"
+            echo "requirements = python3,kivy"
+            exit 1
+          fi
+
+          echo "Python requirement is not incorrectly pinned."
+
+      # ============================================================
+      # CLEAN BUILDS
+      # ============================================================
 
       - name: Clean Build
         shell: bash
@@ -148,9 +174,9 @@ jobs:
 
           echo "Clean complete."
 
-      # ============================================
+      # ============================================================
       # BUILD APK
-      # ============================================
+      # ============================================================
 
       - name: Build APK
         shell: bash
@@ -178,12 +204,12 @@ jobs:
           python - <<'PY'
           import sys
 
-          print("Python executable:", sys.executable)
-          print("Python version:", sys.version)
+          print("Host Python executable:", sys.executable)
+          print("Host Python version:", sys.version)
 
           if sys.version_info[:2] != (3, 11):
               raise SystemExit(
-                  "ERROR: GitHub Actions Python is not 3.11"
+                  "ERROR: Host Python must be 3.11"
               )
           PY
 
@@ -208,12 +234,19 @@ jobs:
             buildozer.spec || true
 
           echo "======================================"
-          echo "IMPORTANT PYTHON VERSION"
+          echo "PYTHON REQUIREMENT"
           echo "======================================"
 
-          grep -n \
-            'python3==3.11.10' \
-            buildozer.spec
+          grep -n '^requirements' buildozer.spec
+
+          echo "======================================"
+          echo "IMPORTANT"
+          echo "======================================"
+
+          echo "Host Python: 3.11.x"
+          echo "Embedded python-for-android Python:"
+          echo "selected automatically by python-for-android"
+          echo "Python version is NOT pinned in requirements."
 
           echo "======================================"
           echo "BUILD APK"
@@ -230,9 +263,31 @@ jobs:
             \( -name "*.apk" -o -name "*.aab" \) \
             -print
 
-      # ============================================
+      # ============================================================
+      # VERIFY APK
+      # ============================================================
+
+      - name: Verify APK output
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          echo "======================================"
+          echo "VERIFYING APK OUTPUT"
+          echo "======================================"
+
+          if ! find bin -maxdepth 1 -type f \( -name "*.apk" -o -name "*.aab" \) | grep -q .; then
+            echo "ERROR: No APK/AAB was produced."
+            exit 1
+          fi
+
+          echo "APK/AAB successfully produced."
+
+          ls -lah bin/
+
+      # ============================================================
       # UPLOAD APK
-      # ============================================
+      # ============================================================
 
       - name: Upload APK
         if: success()
