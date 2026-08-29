@@ -1,9 +1,6 @@
 name: Frahoosh Android Build
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
@@ -11,57 +8,26 @@ permissions:
 
 jobs:
   build:
-    name: Build Frahoosh APK
     runs-on: ubuntu-22.04
 
-    env:
-      PYTHONUNBUFFERED: "1"
-      PIP_DISABLE_PIP_VERSION_CHECK: "1"
-      ANDROID_HOME: /home/runner/.buildozer/android/platform/android-sdk
-      ANDROID_SDK_ROOT: /home/runner/.buildozer/android/platform/android-sdk
-
     steps:
-
-      # ============================================================
-      # Checkout
-      # ============================================================
-
       - name: Checkout
         uses: actions/checkout@v5
-
-
-      # ============================================================
-      # Python
-      # ============================================================
 
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
-
-      # ============================================================
-      # Java
-      # ============================================================
-
       - name: Setup Java
         uses: actions/setup-java@v5
         with:
-          distribution: temurin
+          distribution: "temurin"
           java-version: "17"
 
-
-      # ============================================================
-      # Linux Dependencies
-      # ============================================================
-
-      - name: Install Linux dependencies
-        shell: bash
+      - name: Install dependencies
         run: |
-          set -euxo pipefail
-
           sudo apt-get update
-
           sudo apt-get install -y \
             build-essential \
             ccache \
@@ -79,297 +45,31 @@ jobs:
             libncursesw5-dev \
             libffi-dev \
             libssl-dev \
-            cmake \
-            python3-virtualenv
-
-
-      # ============================================================
-      # Buildozer
-      # ============================================================
+            cmake
 
       - name: Install Buildozer
-        shell: bash
         run: |
-          set -euxo pipefail
-
           python -m pip install --upgrade pip setuptools wheel
+          python -m pip install buildozer==1.5.0
+          python -m pip install cython==0.29.36
 
-          python -m pip install \
-            "buildozer==1.5.0"
-
-          python -m pip install \
-            "cython==0.29.36"
-
-          echo "Buildozer installed successfully."
-
-
-      # ============================================================
-      # Verify Project
-      # ============================================================
-
-      - name: Verify project
-        shell: bash
+      - name: Check project
         run: |
-          set -euxo pipefail
-
           test -f buildozer.spec
-          test -d mobile
           test -f mobile/main.py
-          test -f mobile/config.py
-          test -f mobile/services/api.py
-
-          echo "======================================"
-          echo "PROJECT STRUCTURE OK"
-          echo "======================================"
-
           python --version
           buildozer --version
 
-
-      # ============================================================
-      # Android SDK
-      # ============================================================
-
-      - name: Prepare Android SDK
-        shell: bash
+      - name: Build APK
         run: |
-          set -euxo pipefail
-
-          SDK="$ANDROID_HOME"
-
-          mkdir -p "$SDK/cmdline-tools"
-
-          if [ ! -x "$SDK/cmdline-tools/latest/bin/sdkmanager" ]; then
-
-            cd "$SDK/cmdline-tools"
-
-            rm -rf latest
-            rm -rf tmp
-            rm -f commandlinetools.zip
-
-            wget -q \
-              "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip" \
-              -O commandlinetools.zip
-
-            mkdir tmp
-
-            unzip -q \
-              commandlinetools.zip \
-              -d tmp
-
-            mv \
-              tmp/cmdline-tools \
-              latest
-
-            rm -rf tmp
-            rm -f commandlinetools.zip
-
-          fi
-
-          mkdir -p "$SDK/tools/bin"
-
-          ln -sf \
-            "$SDK/cmdline-tools/latest/bin/sdkmanager" \
-            "$SDK/tools/bin/sdkmanager"
-
-          ln -sf \
-            "$SDK/cmdline-tools/latest/bin/avdmanager" \
-            "$SDK/tools/bin/avdmanager"
-
-          chmod +x \
-            "$SDK/cmdline-tools/latest/bin/sdkmanager"
-
-          chmod +x \
-            "$SDK/cmdline-tools/latest/bin/avdmanager"
-
-          echo "$SDK/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
-          echo "$SDK/tools/bin" >> "$GITHUB_PATH"
-
-          export PATH="$SDK/cmdline-tools/latest/bin:$SDK/tools/bin:$PATH"
-
-          echo "======================================"
-          echo "ANDROID SDK"
-          echo "======================================"
-
-          sdkmanager --version
-
-
-      # ============================================================
-      # Android Licenses
-      # ============================================================
-
-      - name: Accept Android licenses
-        shell: bash
-        run: |
-          set -euxo pipefail
-
-          SDK="$ANDROID_HOME"
-
-          export PATH="$SDK/cmdline-tools/latest/bin:$SDK/tools/bin:$PATH"
-
-          mkdir -p "$SDK/licenses"
-
-          yes | sdkmanager \
-            --sdk_root="$SDK" \
-            --licenses || true
-
-          echo "Android SDK licenses accepted."
-
-
-      # ============================================================
-      # Android SDK Components
-      # ============================================================
-
-      - name: Install Android SDK components
-        shell: bash
-        run: |
-          set -euxo pipefail
-
-          SDK="$ANDROID_HOME"
-
-          export PATH="$SDK/cmdline-tools/latest/bin:$SDK/tools/bin:$PATH"
-
-          sdkmanager \
-            --sdk_root="$SDK" \
-            "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0"
-
-          echo "Android SDK components installed."
-
-
-      # ============================================================
-      # Clean Build Environment
-      # ============================================================
-
-      - name: Clean Build
-        shell: bash
-        run: |
-          set -euxo pipefail
-
           rm -rf .buildozer
           rm -rf bin
-
-          mkdir -p .buildozer
-
-          echo "Build environment cleaned."
-
-
-      # ============================================================
-      # Show Build Configuration
-      # ============================================================
-
-      - name: Show Build Configuration
-        shell: bash
-        run: |
-          set -euxo pipefail
-
-          echo "======================================"
-          echo "FRAHOOSH BUILD CONFIGURATION"
-          echo "======================================"
-
-          echo ""
-          echo "Python:"
-          python --version
-
-          echo ""
-          echo "Buildozer:"
-          buildozer --version
-
-          echo ""
-          echo "Java:"
-          java -version
-
-          echo ""
-          echo "Android SDK:"
-          sdkmanager --version
-
-          echo ""
-          echo "buildozer.spec:"
-          echo "--------------------------------------"
-
-          cat buildozer.spec
-
-          echo "--------------------------------------"
-
-
-      # ============================================================
-      # Build APK
-      # ============================================================
-
-      - name: Build Frahoosh APK
-        shell: bash
-        run: |
-          set -euxo pipefail
-
-          export ANDROID_HOME="$HOME/.buildozer/android/platform/android-sdk"
-          export ANDROID_SDK_ROOT="$ANDROID_HOME"
-
-          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/tools/bin:$PATH"
-
-          echo "======================================"
-          echo "STARTING FRAHOOSH APK BUILD"
-          echo "======================================"
-
-          echo ""
-          echo "Python:"
-          python --version
-
-          echo ""
-          echo "Buildozer:"
-          buildozer --version
-
-          echo ""
-          echo "Java:"
-          java -version
-
-          echo ""
-          echo "Android SDK:"
-          sdkmanager --version
-
-          echo ""
-          echo "======================================"
-          echo "ANDROID BUILD CONFIGURATION"
-          echo "======================================"
-
-          grep -E \
-            '^(android\.api|android\.minapi|android\.ndk|android\.ndk_api|android\.archs|requirements)' \
-            buildozer.spec || true
-
-          echo ""
-          echo "======================================"
-          echo "BUILD START"
-          echo "======================================"
-
           buildozer -v android debug
-
-          echo ""
-          echo "======================================"
-          echo "BUILD FINISHED"
-          echo "======================================"
-
-
-      # ============================================================
-      # Find APK
-      # ============================================================
 
       - name: Find APK
         if: always()
-        shell: bash
         run: |
-          echo "======================================"
-          echo "APK FILES"
-          echo "======================================"
-
-          find bin \
-            -type f \
-            -name "*.apk" \
-            -print 2>/dev/null || true
-
-
-      # ============================================================
-      # Upload APK
-      # ============================================================
+          find bin -type f -name "*.apk" -print || true
 
       - name: Upload APK
         if: success()
@@ -380,19 +80,3 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-
-      # ============================================================
-      # Upload Logs On Failure
-      # ============================================================
-
-      - name: Upload Build Logs
-        if: failure()
-        uses: actions/upload-artifact@v5
-        with:
-          name: Frahoosh-Mobile-Build-Logs
-          path: |
-            .buildozer/**/*.log
-            .buildozer/**/build.log
-          if-no-files-found: ignore
-          retention-days: 7
-```
