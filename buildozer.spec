@@ -10,7 +10,6 @@ source.exclude_dirs = __pycache__,.git,bin,.buildozer,tests
 
 version = 1.0.0
 
-# فقط وابستگی‌های لازم برای خود برنامه
 requirements = python3,kivy
 
 orientation = portrait
@@ -50,3 +49,4 @@ p4a.commit = 0382d27
 
 log_level = 2
 warn_on_root = 0
+
