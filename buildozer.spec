@@ -10,7 +10,7 @@ source.exclude_dirs = __pycache__,.git,bin,.buildozer,tests
 
 version = 1.0.0
 
-requirements = python3,kivy
+requirements = python3,kivy,requests,certifi,chardet,idna,urllib3,six,charset-normalizer==2.1.1
 
 orientation = portrait
 fullscreen = 0
@@ -26,7 +26,6 @@ android.minapi = 24
 android.ndk = 28c
 android.ndk_api = 24
 
-# فعلاً فقط معماری اصلی و پایدار اندروید
 android.archs = arm64-v8a
 
 android.permissions = INTERNET
@@ -38,9 +37,10 @@ android.skip_update = 0
 # Python-for-Android
 # ============================================================
 
-# استفاده از Release پایدار، نه develop
-p4a.branch = master
-p4a.commit = 58d2114
+# از نسخه develop فعلی استفاده می‌کنیم
+# چون recipe مربوط به charset-normalizer در آن وجود دارد.
+
+p4a.branch = develop
 
 
 # ============================================================
