@@ -8,15 +8,10 @@ on:
       - main
       - master
 
-
 jobs:
-
   build:
-
     name: Build Frahoosh APK
-
     runs-on: ubuntu-22.04
-
 
     steps:
 
@@ -57,7 +52,6 @@ jobs:
       - name: Install system dependencies
         shell: bash
         run: |
-
           set -euxo pipefail
 
           sudo apt-get update
@@ -84,13 +78,12 @@ jobs:
 
 
       # =========================================================
-      # VERIFY HOST
+      # VERIFY HOST ENVIRONMENT
       # =========================================================
 
       - name: Verify host environment
         shell: bash
         run: |
-
           set -euxo pipefail
 
           echo "=========================================="
@@ -106,12 +99,30 @@ jobs:
           print("Python version:", sys.version)
 
           if sys.version_info[:2] != (3, 11):
-              raise SystemExit(
-                  "ERROR: HOST Python must be 3.11"
-              )
+              raise SystemExit("ERROR: HOST Python must be 3.11")
           PY
 
           java -version
+
+
+      # =========================================================
+      # PYTHON SYNTAX CHECK
+      # =========================================================
+
+      - name: Python syntax check
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          echo "=========================================="
+          echo "PYTHON SYNTAX CHECK"
+          echo "=========================================="
+
+          python -m compileall -q mobile
+
+          echo "=========================================="
+          echo "PYTHON SYNTAX CHECK PASSED"
+          echo "=========================================="
 
 
       # =========================================================
@@ -121,7 +132,6 @@ jobs:
       - name: Install Buildozer
         shell: bash
         run: |
-
           set -euxo pipefail
 
           python -m pip install --upgrade \
@@ -137,13 +147,12 @@ jobs:
 
 
       # =========================================================
-      # VERIFY PROJECT
+      # VERIFY PROJECT STRUCTURE
       # =========================================================
 
       - name: Verify Frahoosh project
         shell: bash
         run: |
-
           set -euxo pipefail
 
           echo "=========================================="
@@ -161,7 +170,7 @@ jobs:
           find mobile -maxdepth 3 -type f -print
 
           echo ""
-          echo "CHECKING main.py..."
+          echo "CHECKING MAIN.PY..."
 
           test -f mobile/main.py
 
@@ -169,32 +178,12 @@ jobs:
 
 
       # =========================================================
-      # CHECK PYTHON SYNTAX
-      # =========================================================
-
-      - name: Check Python syntax
-        shell: bash
-        run: |
-
-          set -euxo pipefail
-
-          echo "=========================================="
-          echo "PYTHON SYNTAX CHECK"
-          echo "=========================================="
-
-          python -m compileall -q mobile
-
-          echo "Python syntax check completed successfully."
-
-
-      # =========================================================
-      # VERIFY BUILDOZER CONFIG
+      # VERIFY BUILDOZER CONFIGURATION
       # =========================================================
 
       - name: Verify Buildozer configuration
         shell: bash
         run: |
-
           set -euxo pipefail
 
           echo "=========================================="
@@ -208,16 +197,7 @@ jobs:
             buildozer.spec || true
 
           echo ""
-          echo "=========================================="
-          echo "PYTHON REQUIREMENT"
-          echo "=========================================="
-
-          grep -n '^requirements' buildozer.spec
-
-          echo ""
-          echo "=========================================="
-          echo "SOURCE DIRECTORY"
-          echo "=========================================="
+          echo "CHECKING SOURCE.DIR..."
 
           grep -q '^source.dir = mobile$' buildozer.spec
 
@@ -231,7 +211,6 @@ jobs:
       - name: Clean Build
         shell: bash
         run: |
-
           set -euxo pipefail
 
           echo "=========================================="
@@ -251,8 +230,7 @@ jobs:
       - name: Build Frahoosh APK
         shell: bash
         run: |
-
-          set -o pipefail
+          set -euxo pipefail
 
           echo "=========================================="
           echo "START FRAHOOSH APK BUILD"
@@ -266,11 +244,6 @@ jobs:
           echo ""
           echo "ANDROID_HOME=$ANDROID_HOME"
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
-
-
-          # =====================================================
-          # HOST PYTHON
-          # =====================================================
 
           echo ""
           echo "=========================================="
@@ -286,15 +259,8 @@ jobs:
           print("Python version:", sys.version)
 
           if sys.version_info[:2] != (3, 11):
-              raise SystemExit(
-                  "ERROR: Host Python is not 3.11"
-              )
+              raise SystemExit("ERROR: Host Python is not 3.11")
           PY
-
-
-          # =====================================================
-          # BUILDOZER
-          # =====================================================
 
           echo ""
           echo "=========================================="
@@ -303,22 +269,12 @@ jobs:
 
           buildozer --version
 
-
-          # =====================================================
-          # JAVA
-          # =====================================================
-
           echo ""
           echo "=========================================="
           echo "JAVA"
           echo "=========================================="
 
           java -version
-
-
-          # =====================================================
-          # PROJECT
-          # =====================================================
 
           echo ""
           echo "=========================================="
@@ -329,11 +285,6 @@ jobs:
 
           echo "mobile/main.py FOUND"
 
-
-          # =====================================================
-          # CONFIG
-          # =====================================================
-
           echo ""
           echo "=========================================="
           echo "BUILD CONFIGURATION"
@@ -343,44 +294,21 @@ jobs:
             '^(source.dir|requirements|android.api|android.minapi|android.ndk|android.ndk_api|android.archs|p4a.bootstrap|p4a.fork|p4a.branch|p4a.commit)' \
             buildozer.spec || true
 
+          echo ""
+          echo "=========================================="
+          echo "ANDROID SDK LICENSES"
+          echo "=========================================="
 
-          # =====================================================
-          # BUILD
-          # =====================================================
+          mkdir -p "$ANDROID_HOME/licenses"
+
+          yes | sdkmanager --licenses || true
 
           echo ""
           echo "=========================================="
-          echo "RUNNING BUILDOZER"
+          echo "BUILD APK"
           echo "=========================================="
 
-          buildozer -v android debug 2>&1 | tee build.log
-
-          BUILD_STATUS=${PIPESTATUS[0]}
-
-          echo ""
-          echo "=========================================="
-          echo "BUILDOZER EXIT CODE: ${BUILD_STATUS}"
-          echo "=========================================="
-
-          if [ "${BUILD_STATUS}" -ne 0 ]; then
-
-            echo ""
-            echo "=========================================="
-            echo "IMPORTANT ERROR LINES"
-            echo "=========================================="
-
-            grep -Ei \
-              'error:|exception|traceback|failed|syntaxerror|no matching distribution|license|ndk|python3\.[0-9]+' \
-              build.log | tail -n 200 || true
-
-            exit "${BUILD_STATUS}"
-
-          fi
-
-
-          # =====================================================
-          # APK SEARCH
-          # =====================================================
+          buildozer -v android debug
 
           echo ""
           echo "=========================================="
@@ -400,30 +328,24 @@ jobs:
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
-
         with:
-
           name: Frahoosh-Android-APK
-
           path: |
             bin/*.apk
             bin/*.aab
-
           if-no-files-found: error
 
 
       # =========================================================
-      # UPLOAD BUILD LOG
+      # UPLOAD BUILD LOG ON FAILURE
       # =========================================================
 
-      - name: Upload build log
-        if: always()
+      - name: Upload build logs on failure
+        if: failure()
         uses: actions/upload-artifact@v4
-
         with:
-
-          name: Frahoosh-Build-Log
-
-          path: build.log
-
+          name: Frahoosh-Build-Logs
+          path: |
+            .buildozer/**/*.log
+            .buildozer/android/platform/build-*/build/**/*.log
           if-no-files-found: ignore
