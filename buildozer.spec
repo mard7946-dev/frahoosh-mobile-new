@@ -16,6 +16,7 @@ fullscreen = 0
 
 android.api = 35
 android.minapi = 24
+
 android.ndk = 28c
 android.ndk_api = 24
 
@@ -29,6 +30,15 @@ android.enable_androidx = True
 
 p4a.bootstrap = sdl2
 
+# ============================================================
+# IMPORTANT:
+# Fix for charset-normalizer / Python 3.14 Android wheels
+# Merged upstream in python-for-android PR #3366
+# ============================================================
+
+p4a.fork = kivy
+p4a.branch = develop
+p4a.commit = 5865575
 
 [buildozer]
 
