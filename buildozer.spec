@@ -1,7 +1,6 @@
 [app]
 
 title = Frahoosh
-
 package.name = frahoosh
 package.domain = ir.frahoosh
 
@@ -35,15 +34,9 @@ android.permissions = INTERNET,ACCESS_NETWORK_STATE
 
 android.enable_androidx = True
 
-android.add_src =
-
 android.entrypoint = org.kivy.android.PythonActivity
 
 p4a.bootstrap = sdl2
-
-p4a.fork = kivy
-p4a.branch = develop
-p4a.commit = 5865575
 
 
 [buildozer]
