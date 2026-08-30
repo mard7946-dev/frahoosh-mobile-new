@@ -14,7 +14,7 @@ source.exclude_dirs = bin,.buildozer,.git,__pycache__,tests
 
 version = 1.0.0
 
-requirements = python3,kivy,requests
+requirements = python3==3.11.10,kivy,requests
 
 orientation = portrait
 
@@ -53,13 +53,6 @@ p4a.fork = kivy
 p4a.branch = develop
 
 p4a.commit = 5865575
-
-
-# =========================================================
-# ANDROID BUILD OPTIONS
-# =========================================================
-
-android.accept_sdk_license = True
 
 
 [buildozer]
