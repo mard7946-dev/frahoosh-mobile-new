@@ -20,6 +20,11 @@ orientation = portrait
 
 fullscreen = 0
 
+
+# =========================================================
+# ANDROID
+# =========================================================
+
 android.api = 35
 android.minapi = 24
 
@@ -36,7 +41,25 @@ android.enable_androidx = True
 
 android.entrypoint = org.kivy.android.PythonActivity
 
+
+# =========================================================
+# PYTHON FOR ANDROID
+# =========================================================
+
 p4a.bootstrap = sdl2
+
+p4a.fork = kivy
+
+p4a.branch = develop
+
+p4a.commit = 5865575
+
+
+# =========================================================
+# ANDROID BUILD OPTIONS
+# =========================================================
+
+android.accept_sdk_license = True
 
 
 [buildozer]
