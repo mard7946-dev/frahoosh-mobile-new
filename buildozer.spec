@@ -1,17 +1,24 @@
 [app]
 
 title = Frahoosh
+
 package.name = frahoosh
 package.domain = ir.frahoosh
 
-source.dir = .
-source.include_exts = py,png,jpg,jpeg,kv,json,atlas,ttf,otf
+source.dir = mobile
+
+source.include_exts = py,png,jpg,jpeg,kv,atlas,json,txt,ttf,otf,ico
+
+source.exclude_exts = spec
+
+source.exclude_dirs = bin,.buildozer,.git,__pycache__,tests
 
 version = 1.0.0
 
-requirements = python3,kivy
+requirements = python3,kivy,requests
 
 orientation = portrait
+
 fullscreen = 0
 
 android.api = 35
@@ -22,23 +29,22 @@ android.ndk_api = 24
 
 android.archs = arm64-v8a
 
-android.accept_sdk_license = True
+android.private_storage = True
 
 android.permissions = INTERNET,ACCESS_NETWORK_STATE
 
 android.enable_androidx = True
 
-p4a.bootstrap = sdl2
+android.add_src =
 
-# ============================================================
-# IMPORTANT:
-# Fix for charset-normalizer / Python 3.14 Android wheels
-# Merged upstream in python-for-android PR #3366
-# ============================================================
+android.entrypoint = org.kivy.android.PythonActivity
+
+p4a.bootstrap = sdl2
 
 p4a.fork = kivy
 p4a.branch = develop
 p4a.commit = 5865575
+
 
 [buildozer]
 
