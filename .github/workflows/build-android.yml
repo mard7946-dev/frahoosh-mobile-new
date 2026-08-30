@@ -2,13 +2,17 @@ name: Frahoosh Android Build
 
 on:
   workflow_dispatch:
+
   push:
     branches:
       - master
 
 jobs:
+
   build:
+
     name: Build Frahoosh APK
+
     runs-on: ubuntu-22.04
 
     steps:
@@ -28,7 +32,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11.10"
-          cache: "pip"
 
       # ============================================================
       # JAVA 17
@@ -47,6 +50,7 @@ jobs:
       - name: Install system dependencies
         shell: bash
         run: |
+
           set -euxo pipefail
 
           sudo apt-get update
@@ -70,18 +74,20 @@ jobs:
             ccache
 
       # ============================================================
-      # VERIFY HOST ENVIRONMENT
+      # VERIFY HOST
       # ============================================================
 
-      - name: Verify environment
+      - name: Verify host environment
         shell: bash
         run: |
+
           set -euxo pipefail
 
-          echo "======================================"
-          echo "FRAHOOSH BUILD ENVIRONMENT"
-          echo "======================================"
+          echo "============================================"
+          echo "FRAHOOSH ANDROID BUILD"
+          echo "============================================"
 
+          echo "Python:"
           python --version
 
           python - <<'PY'
@@ -96,6 +102,7 @@ jobs:
               )
           PY
 
+          echo "Java:"
           java -version
 
       # ============================================================
@@ -105,6 +112,7 @@ jobs:
       - name: Install Buildozer
         shell: bash
         run: |
+
           set -euxo pipefail
 
           python -m pip install --upgrade \
@@ -119,55 +127,61 @@ jobs:
           buildozer --version
 
       # ============================================================
-      # VERIFY BUILD CONFIGURATION
+      # VERIFY FRAHOOSH CONFIGURATION
       # ============================================================
 
-      - name: Verify build configuration
+      - name: Verify Frahoosh configuration
         shell: bash
         run: |
+
           set -euxo pipefail
 
-          echo "======================================"
-          echo "BUILDOZER CONFIGURATION"
-          echo "======================================"
+          echo "============================================"
+          echo "BUILDOZER SPEC"
+          echo "============================================"
 
-          grep -E \
-            '^(requirements|android.api|android.minapi|android.ndk|android.ndk_api|android.archs|p4a.bootstrap|p4a.branch|p4a.commit)' \
-            buildozer.spec || true
+          cat buildozer.spec
 
-          echo "======================================"
-          echo "PYTHON REQUIREMENT"
-          echo "======================================"
+          echo "============================================"
+          echo "CHECK PYTHON REQUIREMENT"
+          echo "============================================"
 
-          grep -n \
-            '^requirements' \
-            buildozer.spec || true
+          grep -n "^requirements" buildozer.spec
 
-          echo "======================================"
-          echo "CHECK FOR INVALID PYTHON PIN"
-          echo "======================================"
-
-          if grep -q 'python3==3.11.10' buildozer.spec; then
-            echo "ERROR: buildozer.spec still pins python3 to 3.11.10"
-            echo "Change it to:"
-            echo "requirements = python3,kivy"
+          if grep -q "python3==3.11.10" buildozer.spec; then
+            echo "ERROR: Python 3.11 must NOT be pinned inside APK requirements."
             exit 1
           fi
 
-          echo "Python requirement is not incorrectly pinned."
+          echo "Python requirement is correct."
+
+          echo "============================================"
+          echo "CHECK P4A"
+          echo "============================================"
+
+          grep -n "^p4a" buildozer.spec
+
+          echo "============================================"
+          echo "CHECK ANDROID"
+          echo "============================================"
+
+          grep -E \
+            "^(android.api|android.minapi|android.ndk|android.ndk_api|android.archs)" \
+            buildozer.spec
 
       # ============================================================
-      # CLEAN BUILDS
+      # CLEAN EVERYTHING
       # ============================================================
 
       - name: Clean Build
         shell: bash
         run: |
+
           set -euxo pipefail
 
-          echo "======================================"
-          echo "CLEANING PREVIOUS BUILDS"
-          echo "======================================"
+          echo "============================================"
+          echo "CLEANING BUILD"
+          echo "============================================"
 
           rm -rf .buildozer
           rm -rf bin
@@ -178,14 +192,15 @@ jobs:
       # BUILD APK
       # ============================================================
 
-      - name: Build APK
+      - name: Build Frahoosh APK
         shell: bash
         run: |
+
           set -euxo pipefail
 
-          echo "======================================"
-          echo "STARTING FRAHOOSH APK BUILD"
-          echo "======================================"
+          echo "============================================"
+          echo "START FRAHOOSH APK BUILD"
+          echo "============================================"
 
           export ANDROID_HOME="$HOME/.buildozer/android/platform/android-sdk"
           export ANDROID_SDK_ROOT="$ANDROID_HOME"
@@ -195,68 +210,55 @@ jobs:
           echo "ANDROID_HOME=$ANDROID_HOME"
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
 
-          echo "======================================"
+          echo "============================================"
           echo "HOST PYTHON"
-          echo "======================================"
+          echo "============================================"
 
           python --version
 
-          python - <<'PY'
-          import sys
-
-          print("Host Python executable:", sys.executable)
-          print("Host Python version:", sys.version)
-
-          if sys.version_info[:2] != (3, 11):
-              raise SystemExit(
-                  "ERROR: Host Python must be 3.11"
-              )
-          PY
-
-          echo "======================================"
-          echo "BUILDOZER"
-          echo "======================================"
-
-          buildozer --version
-
-          echo "======================================"
+          echo "============================================"
           echo "JAVA"
-          echo "======================================"
+          echo "============================================"
 
           java -version
 
-          echo "======================================"
-          echo "BUILD CONFIGURATION"
-          echo "======================================"
+          echo "============================================"
+          echo "BUILDOZER"
+          echo "============================================"
+
+          buildozer --version
+
+          echo "============================================"
+          echo "P4A CONFIGURATION"
+          echo "============================================"
 
           grep -E \
-            '^(requirements|android.api|android.minapi|android.ndk|android.ndk_api|android.archs|p4a.bootstrap)' \
-            buildozer.spec || true
+            "^(p4a.fork|p4a.branch|p4a.commit|p4a.bootstrap)" \
+            buildozer.spec
 
-          echo "======================================"
-          echo "PYTHON REQUIREMENT"
-          echo "======================================"
+          echo "============================================"
+          echo "ANDROID CONFIGURATION"
+          echo "============================================"
 
-          grep -n '^requirements' buildozer.spec
+          grep -E \
+            "^(android.api|android.minapi|android.ndk|android.ndk_api|android.archs)" \
+            buildozer.spec
 
-          echo "======================================"
-          echo "IMPORTANT"
-          echo "======================================"
+          echo "============================================"
+          echo "REQUIREMENTS"
+          echo "============================================"
 
-          echo "Host Python: 3.11.x"
-          echo "Embedded python-for-android Python:"
-          echo "selected automatically by python-for-android"
-          echo "Python version is NOT pinned in requirements."
+          grep "^requirements" buildozer.spec
 
-          echo "======================================"
-          echo "BUILD APK"
-          echo "======================================"
+          echo "============================================"
+          echo "BUILD"
+          echo "============================================"
 
           buildozer -v android debug
 
-          echo "======================================"
+          echo "============================================"
           echo "APK SEARCH"
-          echo "======================================"
+          echo "============================================"
 
           find . \
             -type f \
@@ -270,18 +272,27 @@ jobs:
       - name: Verify APK output
         shell: bash
         run: |
+
           set -euxo pipefail
 
-          echo "======================================"
-          echo "VERIFYING APK OUTPUT"
-          echo "======================================"
+          echo "============================================"
+          echo "VERIFY APK"
+          echo "============================================"
 
-          if ! find bin -maxdepth 1 -type f \( -name "*.apk" -o -name "*.aab" \) | grep -q .; then
-            echo "ERROR: No APK/AAB was produced."
+          if ! find bin \
+            -maxdepth 1 \
+            -type f \
+            \( -name "*.apk" -o -name "*.aab" \) \
+            | grep -q .; then
+
+            echo "ERROR: APK/AAB was not produced."
             exit 1
+
           fi
 
-          echo "APK/AAB successfully produced."
+          echo "============================================"
+          echo "APK SUCCESSFULLY CREATED"
+          echo "============================================"
 
           ls -lah bin/
 
@@ -292,9 +303,13 @@ jobs:
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
+
         with:
+
           name: Frahoosh-Android-APK
+
           path: |
             bin/*.apk
             bin/*.aab
+
           if-no-files-found: error
