@@ -8,6 +8,7 @@ on:
       - main
       - master
 
+
 jobs:
 
   build:
@@ -15,6 +16,7 @@ jobs:
     name: Build Frahoosh APK
 
     runs-on: ubuntu-22.04
+
 
     steps:
 
@@ -82,7 +84,7 @@ jobs:
 
 
       # =========================================================
-      # VERIFY HOST ENVIRONMENT
+      # VERIFY HOST
       # =========================================================
 
       - name: Verify host environment
@@ -135,7 +137,7 @@ jobs:
 
 
       # =========================================================
-      # VERIFY PROJECT STRUCTURE
+      # VERIFY PROJECT
       # =========================================================
 
       - name: Verify Frahoosh project
@@ -156,10 +158,10 @@ jobs:
 
           echo ""
           echo "MOBILE FILES:"
-          find mobile -maxdepth 2 -type f -print
+          find mobile -maxdepth 3 -type f -print
 
           echo ""
-          echo "CHECKING MAIN.PY..."
+          echo "CHECKING main.py..."
 
           test -f mobile/main.py
 
@@ -167,7 +169,26 @@ jobs:
 
 
       # =========================================================
-      # VERIFY BUILDOZER CONFIGURATION
+      # CHECK PYTHON SYNTAX
+      # =========================================================
+
+      - name: Check Python syntax
+        shell: bash
+        run: |
+
+          set -euxo pipefail
+
+          echo "=========================================="
+          echo "PYTHON SYNTAX CHECK"
+          echo "=========================================="
+
+          python -m compileall -q mobile
+
+          echo "Python syntax check completed successfully."
+
+
+      # =========================================================
+      # VERIFY BUILDOZER CONFIG
       # =========================================================
 
       - name: Verify Buildozer configuration
@@ -180,12 +201,23 @@ jobs:
           echo "BUILDOZER CONFIGURATION"
           echo "=========================================="
 
+          test -f buildozer.spec
+
           grep -E \
-            '^(source.dir|requirements|android.api|android.minapi|android.ndk|android.ndk_api|android.archs|p4a.bootstrap)' \
-            buildozer.spec
+            '^(source.dir|requirements|android.api|android.minapi|android.ndk|android.ndk_api|android.archs|p4a.bootstrap|p4a.fork|p4a.branch|p4a.commit)' \
+            buildozer.spec || true
 
           echo ""
-          echo "CHECKING SOURCE.DIR..."
+          echo "=========================================="
+          echo "PYTHON REQUIREMENT"
+          echo "=========================================="
+
+          grep -n '^requirements' buildozer.spec
+
+          echo ""
+          echo "=========================================="
+          echo "SOURCE DIRECTORY"
+          echo "=========================================="
 
           grep -q '^source.dir = mobile$' buildozer.spec
 
@@ -220,7 +252,7 @@ jobs:
         shell: bash
         run: |
 
-          set -euxo pipefail
+          set -o pipefail
 
           echo "=========================================="
           echo "START FRAHOOSH APK BUILD"
@@ -285,7 +317,7 @@ jobs:
 
 
           # =====================================================
-          # PROJECT ENTRYPOINT
+          # PROJECT
           # =====================================================
 
           echo ""
@@ -299,7 +331,7 @@ jobs:
 
 
           # =====================================================
-          # BUILD CONFIGURATION
+          # CONFIG
           # =====================================================
 
           echo ""
@@ -308,45 +340,42 @@ jobs:
           echo "=========================================="
 
           grep -E \
-            '^(source.dir|requirements|android.api|android.minapi|android.ndk|android.ndk_api|android.archs|p4a.bootstrap)' \
-            buildozer.spec
+            '^(source.dir|requirements|android.api|android.minapi|android.ndk|android.ndk_api|android.archs|p4a.bootstrap|p4a.fork|p4a.branch|p4a.commit)' \
+            buildozer.spec || true
 
 
           # =====================================================
-          # ANDROID SDK LICENSE
+          # BUILD
           # =====================================================
 
           echo ""
           echo "=========================================="
-          echo "ANDROID SDK LICENSE"
+          echo "RUNNING BUILDOZER"
           echo "=========================================="
 
-          if [ -d "$ANDROID_HOME/cmdline-tools/latest/bin" ]; then
+          buildozer -v android debug 2>&1 | tee build.log
 
-            echo "Android SDK command line tools found."
+          BUILD_STATUS=${PIPESTATUS[0]}
 
-            yes | sdkmanager --licenses || true
+          echo ""
+          echo "=========================================="
+          echo "BUILDOZER EXIT CODE: ${BUILD_STATUS}"
+          echo "=========================================="
 
-            echo "Android SDK licenses processed."
+          if [ "${BUILD_STATUS}" -ne 0 ]; then
 
-          else
+            echo ""
+            echo "=========================================="
+            echo "IMPORTANT ERROR LINES"
+            echo "=========================================="
 
-            echo "Android SDK is not installed yet."
-            echo "Buildozer will install it during the build."
+            grep -Ei \
+              'error:|exception|traceback|failed|syntaxerror|no matching distribution|license|ndk|python3\.[0-9]+' \
+              build.log | tail -n 200 || true
+
+            exit "${BUILD_STATUS}"
 
           fi
-
-
-          # =====================================================
-          # BUILD APK
-          # =====================================================
-
-          echo ""
-          echo "=========================================="
-          echo "BUILD APK"
-          echo "=========================================="
-
-          yes | buildozer -v android debug
 
 
           # =====================================================
@@ -381,3 +410,20 @@ jobs:
             bin/*.aab
 
           if-no-files-found: error
+
+
+      # =========================================================
+      # UPLOAD BUILD LOG
+      # =========================================================
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+
+        with:
+
+          name: Frahoosh-Build-Log
+
+          path: build.log
+
+          if-no-files-found: ignore
